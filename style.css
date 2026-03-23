@@ -1,0 +1,210 @@
+/* ==========================================================================
+   GLOBAL RESET
+   ========================================================================== */
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden; /* Prevents the MAIN browser window from scrolling */
+    background-color: #000;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* ==========================================================================
+   THE ENGINE LAYER (Bottom)
+   ========================================================================== */
+#gameCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* ==========================================================================
+   THE UI HUD LAYER (Top)
+   ========================================================================== */
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none; 
+}
+
+.menu-box {
+    pointer-events: auto; 
+    background: rgba(10, 10, 20, 0.95);
+    border: 2px solid #00ffcc;
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+#main-menu, #pause-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    width: 300px;
+}
+
+/* --- THE FIX: ADDED SCROLLING TO THE PANELS --- */
+.side-panel {
+    position: absolute;
+    top: 20px;
+    width: 320px;
+    height: calc(100% - 80px);
+    display: flex;
+    flex-direction: column;
+    /* Changed from hidden to auto so long toolbars can scroll! */
+    overflow-y: auto; 
+}
+
+/* ==========================================================================
+   BUTTONS & INPUTS
+   ========================================================================== */
+button {
+    background: #111;
+    color: #00ffcc;
+    border: 1px solid #00ffcc;
+    padding: 10px;
+    margin: 5px 0;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+    transition: 0.1s;
+}
+
+button:hover {
+    background: #00ffcc;
+    color: #111;
+}
+
+.text-input, .dropdown {
+    width: 90%;
+    padding: 8px;
+    margin-bottom: 5px;
+    background: #000;
+    color: #00ffcc;
+    border: 1px solid #444;
+    font-family: inherit;
+}
+
+/* ==========================================================================
+   THE 4-BAY TAB SYSTEM
+   ========================================================================== */
+.tab-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+.tab-btn {
+    width: 23%; 
+    opacity: 0.5;
+    background: #000;
+    border-color: #444;
+    font-size: 11px;
+    padding: 8px 0;
+}
+
+.active-tab {
+    opacity: 1;
+    background: #112233;
+    border-color: #00ffcc;
+}
+
+.prop-box {
+    background: #050505;
+    padding: 10px;
+    border: 1px solid #333;
+    margin-bottom: 10px;
+}
+
+/* --- TOOL SELECTORS (Brush vs Fill) --- */
+.tool-toggle {
+    background: #111;
+    border: 1px solid #444;
+    color: #888;
+}
+
+.active-tool {
+    background: #003322;
+    border: 1px solid #00ffcc;
+    color: #00ffcc;
+}
+
+/* ==========================================================================
+   THE PAINT BOOTH
+   ========================================================================== */
+.color-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    background: #111;
+    padding: 10px;
+    border: 1px solid #555;
+    margin-top: 5px;
+}
+
+.color-swatch {
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    border: 1px solid #000;
+    border-radius: 3px;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+    border: 1px solid white;
+    z-index: 2;
+}
+
+.active-swatch {
+    border: 2px solid #fff;
+    outline: 2px solid #00ffcc;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   THE PARTS LIBRARY
+   ========================================================================== */
+#library-container {
+    overflow-y: auto; 
+    flex-grow: 1; 
+    border: 1px inset #333;
+    background: #050505;
+    padding: 5px;
+}
+
+#library-container div:hover {
+    background: #222; 
+}
+
+/* ==========================================================================
+   CUSTOM SCI-FI SCROLLBARS
+   ========================================================================== */
+/* This overrides the ugly default browser scrollbar to match our UI */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #050505; 
+    border-left: 1px solid #222;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #008888; 
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #00ffcc; 
+}
