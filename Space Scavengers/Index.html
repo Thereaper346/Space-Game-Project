@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Space Scavenger - Master Studio</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .lib-tab {
+            background: #112233; color: #00ffcc; border: 1px solid #0088ff; 
+            font-family: 'Courier New', Courier, monospace; font-size: 10px;
+            padding: 5px; cursor: pointer; flex: 1;
+        }
+        .lib-tab.active-lib { background: #00ffcc; color: #000; }
+        .lib-tab:hover { background: #0088ff; color: #fff; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="start-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000510; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer;">
+        <h1 style="color: #00ffcc; font-family: 'Courier New', monospace; font-size: 40px; text-shadow: 0 0 20px #00ffcc;">SPACE SCAVENGER OS</h1>
+        <p style="color: #0088ff; font-family: 'Courier New', monospace; font-size: 18px; margin-top: 20px; animation: blink 1.5s infinite;">> CLICK ANYWHERE TO INITIALIZE SYSTEM & AUDIO <</p>
+    </div>
+
+    <div id="debug-hud" style="position: absolute; top: 10px; left: 10px; color: #00ffcc; font-family: monospace; font-size: 14px; text-shadow: 1px 1px 2px #000; display: none; pointer-events: none;">
+        SECTOR: [0, 0]<br>
+        ENTITIES: 0
+    </div>
+
+    <div id="ui-layer">
+        
+        <div id="main-menu" class="menu-box" style="display:none;">
+            <h1 style="color: #00ffcc;">SPACE SCAVENGER</h1>
+            <button id="btn-continue" style="display:none; background: #004422; border-color: #00ffcc; color: #fff;">CONTINUE LAST SAVE</button>
+            <button id="btn-play">NEW FLIGHT</button>
+            <button id="btn-editor">ENTER STUDIO</button>
+            <button id="btn-settings-main" style="background: #222; border-color: #555;">⚙️ SETTINGS</button>
+        </div>
+
+        <div id="pause-overlay" class="menu-box" style="display:none;">
+            <h2 style="color: #ff3333;">SYSTEM PAUSED</h2>
+            <button id="btn-resume">RESUME FLIGHT</button>
+            <button id="btn-save-game" style="background: #004422; border-color: #00ffcc; color: #fff;">💾 SAVE PROGRESS</button>
+            <button id="btn-settings-pause" style="background: #222; border-color: #555;">⚙️ SETTINGS</button>
+            <button id="btn-quit">ABORT TO MENU</button>
+        </div>
+
+        <div id="game-over-overlay" class="menu-box" style="display:none; border-color: #ff0044; box-shadow: 0 0 30px #ff0044;">
+            <h1 style="color: #ff0044; margin-bottom: 5px;">HULL DESTROYED</h1>
+            <p style="color: #ccc; margin-top: 0; font-size: 14px;">Your ship was lost to the void.</p>
+            <button id="btn-respawn" style="background: #aa5500; border-color: #ffaa00; margin-top: 10px;">RESPAWN SHIP</button>
+            <button id="btn-quit-dead" style="background: #550000; border-color: #ff3333;">ABORT TO MENU</button>
+        </div>
+
+        <div id="settings-menu" class="menu-box" style="display:none; width: 340px; max-height: 85vh; overflow-y: auto;">
+            <h2 style="color: #00ffcc; margin-top: 0;">SYSTEM SETTINGS</h2>
+            
+            <label>Flight Controls:</label>
+            <select id="control-scheme" class="dropdown" style="margin-top: 5px; margin-bottom: 15px;">
+                <option value="mouse">Mouse Aim + W (Thrust)</option>
+                <option value="wasd">WASD (Omnidirectional)</option>
+            </select>
+
+            <div style="border: 1px solid #333; padding: 10px; background: #111; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; color: #aaa; border-bottom: 1px solid #444; padding-bottom: 5px;">AUDIO MIXER</h4>
+                <label style="color: #3399ff; font-size: 12px;">Exploration Music:</label>
+                <input type="range" id="vol-music-main" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 10px;">
+                <label style="color: #ff3333; font-size: 12px;">Battle Music:</label>
+                <input type="range" id="vol-music-battle" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 10px;">
+                <label style="color: #00ffcc; font-size: 12px;">Player Lasers:</label>
+                <input type="range" id="vol-laser" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 10px;">
+                <label style="color: #ff8800; font-size: 12px;">Ship Engines:</label>
+                <input type="range" id="vol-engine" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 10px;">
+                <label style="color: #cc00ff; font-size: 12px;">Enemy Sounds:</label>
+                <input type="range" id="vol-enemy" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 10px;">
+                <label style="color: #ff00ff; font-size: 12px;">Effects & Pickups:</label>
+                <input type="range" id="vol-sfx" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 10px;">
+                <label style="color: #ffff00; font-size: 12px;">UI & Menus:</label>
+                <input type="range" id="vol-ui" min="0" max="1" step="0.05" value="0.5" style="width: 100%; margin-bottom: 5px;">
+            </div>
+
+            <div style="border: 1px solid #550055; padding: 10px; background: #220022; margin-bottom: 15px;">
+                <h4 style="margin-top: 0; color: #ff00ff; border-bottom: 1px solid #ff00ff; padding-bottom: 5px;">DEVELOPER DEBUG</h4>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <label style="color: #ccc; font-size: 13px;">Show Coordinates:</label>
+                    <input type="checkbox" id="toggle-coords" style="transform: scale(1.2); cursor: pointer;">
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <label style="color: #ccc; font-size: 13px;">Show Hitboxes:</label>
+                    <input type="checkbox" id="toggle-hitboxes" style="transform: scale(1.2); cursor: pointer;">
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <label style="color: #00ff00; font-size: 13px;">Infinite Health:</label>
+                    <input type="checkbox" id="toggle-inf-health" style="transform: scale(1.2); cursor: pointer;">
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <label style="color: #ffff00; font-size: 13px;">Infinite Ammo:</label>
+                    <input type="checkbox" id="toggle-inf-ammo" style="transform: scale(1.2); cursor: pointer;">
+                </div>
+                <hr style="border-color: #550055;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #ffaa00; font-size: 13px;">Laser Speed: [<span id="val-laser-speed" style="color:#fff;">25</span>]</label>
+                    <input type="range" id="debug-laser-speed" min="2" max="60" value="25" style="width: 100px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #00ffcc; font-size: 13px;">Drop Rate %: [<span id="val-drop-rate" style="color:#fff;">100</span>]</label>
+                    <input type="range" id="debug-drop-rate" min="0" max="100" value="100" style="width: 100px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #ff0044; font-size: 13px;">Max Enemies: [<span id="val-enemy-rate" style="color:#fff;">3</span>]</label>
+                    <input type="range" id="debug-enemy-rate" min="0" max="10" value="3" style="width: 100px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #aa0000; font-size: 13px;">Aggression: [<span id="val-enemy-aggression" style="color:#fff;">30</span>]</label>
+                    <input type="range" id="debug-enemy-aggression" min="0" max="45" value="30" style="width: 100px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #0088ff; font-size: 13px;">Noise Scale: [<span id="val-noise-scale" style="color:#fff;">4000</span>]</label>
+                    <input type="range" id="debug-noise-scale" min="500" max="15000" step="100" value="4000" style="width: 100px;">
+                </div>
+            </div>
+            <button id="btn-close-settings" style="background: #550000;">CLOSE SETTINGS</button>
+        </div>
+
+        <div id="editor-tools" class="menu-box side-panel" style="display:none; left:20px;">
+            <h3 style="color: #00ffcc; margin-top:0;">STUDIO TOOLS</h3>
+            <div class="tab-container">
+                <button id="tab-part" class="tab-btn active-tab">1. S-PART</button>
+                <button id="tab-world-part" class="tab-btn">2. W-PART</button>
+                <button id="tab-ship" class="tab-btn">3. SHIP</button>
+                <button id="tab-world" class="tab-btn">4. WORLD</button>
+            </div>
+            <hr>
+            <div id="design-mode-ui">
+                <div class="prop-box">
+                    <label>Component Type:</label>
+                    <select id="part-type" class="dropdown">
+                        <option value="hull">Hull / Structure</option>
+                        <option value="engine">Thruster Engine</option>
+                        <option value="weapon">Weapon Hardpoint</option>
+                        <option value="station">Space Station Core</option>
+                        <option value="item">Item Pickup</option> 
+                        <option value="resource">Resource Node</option> 
+                    </select>
+
+                    <div id="engine-props" style="display:none; margin-top: 10px;">
+                        <label style="color:#ff3333;">Thrust Vector:</label>
+                        <select id="thrust-dir" class="dropdown">
+                            <option value="down">Pushing UP (Exhaust Down)</option>
+                            <option value="up">Pushing DOWN (Exhaust Up)</option>
+                            <option value="left">Pushing RIGHT (Exhaust Left)</option>
+                            <option value="right">Pushing LEFT (Exhaust Right)</option>
+                        </select>
+                        
+                        <label style="color:#3399ff; margin-top: 10px; display: block;">Animation Frames:</label>
+                        <div class="tab-container" id="frame-buttons" style="margin-top: 5px;">
+                            <button class="tab-btn active-tab frame-btn" data-frame="0">1</button>
+                            <button class="tab-btn frame-btn" data-frame="1">2</button>
+                            <button class="tab-btn frame-btn" data-frame="2">3</button>
+                            <button class="tab-btn frame-btn" data-frame="3">4</button>
+                            <button class="tab-btn frame-btn" data-frame="4">5</button>
+                        </div>
+                    </div>
+
+                    <div id="weapon-props" style="display:none; margin-top: 10px;">
+                        <label style="color:#ff8800;">Shoot Vector:</label>
+                        <select id="shoot-dir" class="dropdown">
+                            <option value="up">Shooting UP</option>
+                            <option value="down">Shooting DOWN</option>
+                            <option value="left">Shooting LEFT</option>
+                            <option value="right">Shooting RIGHT</option>
+                        </select>
+                    </div>
+
+                    <div id="item-props" style="display:none; margin-top: 10px;">
+                        <label style="color:#00ffcc;">Restores:</label>
+                        <select id="item-restore-type" class="dropdown">
+                            <option value="ammo">Ammunition</option>
+                            <option value="health">Hull Health</option>
+                        </select>
+                    </div>
+                    
+                    <div id="resource-props" style="display:none; margin-top: 10px;">
+                        <label style="color:#aaaaaa;">Resource Type:</label>
+                        <select id="resource-type" class="dropdown">
+                            <option value="iron">Iron Ore (Durasteel)</option>
+                            <option value="scrap">Scrap Metal (Actuators)</option>
+                            <option value="energyCells">Energy Cells (Cryo-Coils)</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <button id="btn-tool-brush" class="tool-toggle active-tool" style="width: 32%;">🖌️ BRUSH</button>
+                    <button id="btn-tool-fill" class="tool-toggle" style="width: 32%;">🪣 FILL</button>
+                    <button id="btn-tool-origin" class="tool-toggle" style="width: 32%; color: #ff8800; border-color: #ff8800;" title="Set Laser Spawn Point">🎯 ORIGIN</button>
+                </div>
+
+                <label>Palette:</label>
+                <div id="color-grid" class="color-grid"></div>
+
+                <button id="btn-toggle-grid" style="background: #440000; border-color: #ff3333; color: #ff3333; margin-top: 10px;">🟥 TOGGLE ALIGNMENT GRID</button>
+            </div>
+
+            <div id="assemble-mode-ui" style="display:none;">
+                <p style="font-size: 12px; color: #aaa;">Select a part from the Library to snap it to the grid.</p>
+                <p style="font-size: 12px; color: #00ffcc;">NOTE: The cyan ring is the pivot point. Build your ships facing UP!</p>
+                <button id="btn-eraser" style="background: #444; border-color: #888; color: #fff; margin-top: 10px;">🧽 EQUIP ERASER</button>
+            </div>
+
+            <hr>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <button id="btn-undo" style="width: 32%; background: #222; border-color: #555;" title="Undo">↩️ UNDO</button>
+                <button id="btn-redo" style="width: 32%; background: #222; border-color: #555;" title="Redo">↪️ REDO</button>
+                <button id="btn-clear-draw" style="width: 32%; background: #550000; border-color: #ff3333;" title="Wipe Grid">🗑️ CLEAR</button>
+            </div>
+
+            <input type="text" id="part-name" placeholder="Name your Blueprint..." class="text-input" style="width: 92%;">
+            <button id="btn-save-part" style="background: #004422; font-size: 16px;">💾 SAVE BLUEPRINT</button>
+            <button id="btn-exit" style="margin-top: 15px; border-color: #555; color: #aaa;">EXIT STUDIO</button>
+        </div>
+
+        <div id="editor-library" class="menu-box side-panel" style="display:none; right:20px;">
+            <h3 style="color: #00ffcc; margin-top:0;">LIBRARY</h3>
+            
+            <div style="display: flex; gap: 2px; margin-bottom: 5px;">
+                <button class="lib-tab active-lib" id="filter-all">ALL</button>
+                <button class="lib-tab" id="filter-parts">PARTS</button>
+                <button class="lib-tab" id="filter-ships">SHIPS</button>
+                <button class="lib-tab" id="filter-stations">STATIONS</button>
+            </div>
+
+            <div id="library-container" style="max-height: 40vh; overflow-y: auto; border: 1px solid #333; margin-bottom: 5px;"></div>
+            
+            <div id="action-container" style="display:none; padding: 10px; background: #112233; border: 1px solid #00ffcc; margin-top: 5px;">
+                <p id="selected-part-name" style="margin: 0 0 10px 0; font-size: 12px; font-weight: bold; overflow: hidden; color: #fff;">Selected: None</p>
+                <div style="display: flex; justify-content: space-between; gap: 5px; margin-bottom: 5px;">
+                    <button id="btn-equip" style="background: #aa5500; border-color: #ff8800; color: #fff; width: 65%;">🚀 EQUIP</button>
+                    <button id="btn-deselect" style="background: #333; border-color: #777; color: #ccc; width: 30%; font-size: 10px;">✖ CLEAR</button>
+                </div>
+                <div style="display: flex; justify-content: space-between; gap: 5px;">
+                    <button id="btn-rename-part" style="background: #2244aa; border-color: #3399ff; color: #fff; width: 48%; font-size: 10px;">✏️ RENAME</button>
+                    <button id="btn-delete-part" style="background: #aa0000; border-color: #ff3333; color: #fff; width: 48%; font-size: 10px;">🗑️ DELETE</button>
+                </div>
+            </div>
+
+            <hr>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <button id="btn-export" style="width: 48%; background: #113355;">📤 PROJECT</button>
+                <button id="btn-import" style="width: 48%; background: #553311;">📥 LOAD</button>
+                <input type="file" id="file-import" style="display:none;" accept=".json">
+            </div>
+            <button id="btn-copy-js" style="background: #002244; border-color: #00ffcc; color: #00ffcc;">📋 COPY JS DATA</button>
+        </div>
+
+    </div>
+
+    <style>
+        #library-container::-webkit-scrollbar { width: 8px; }
+        #library-container::-webkit-scrollbar-track { background: #111; }
+        #library-container::-webkit-scrollbar-thumb { background: #0088ff; border-radius: 4px; }
+    </style>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
