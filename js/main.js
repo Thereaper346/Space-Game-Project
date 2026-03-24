@@ -76,8 +76,9 @@ let evilPalette = editor.colors.map(c => {
 let settings = { 
     controls: 'mouse', debugMode: false, showCoords: false,
     laserSpeed: 25, infHealth: false, infAmmo: false,
-    dropRate: 100, enemyRate: 3, enemyAggression: 30, noiseScale: 4000 
-}; 
+    dropRate: 100, enemyRate: 3, enemyAggression: 30, noiseScale: 4000,
+    dungeonSize: 30 // NEW
+};
 
 let projectiles = [];
 let enemyProjectiles = []; 
@@ -322,6 +323,8 @@ function setupUI() {
     bindInput('debug-enemy-rate', (e) => { settings.enemyRate = parseInt(e.target.value); document.getElementById('val-enemy-rate').innerText = settings.enemyRate; });
     bindInput('debug-enemy-aggression', (e) => { settings.enemyAggression = parseInt(e.target.value); document.getElementById('val-enemy-aggression').innerText = settings.enemyAggression; });
     bindInput('debug-noise-scale', (e) => { settings.noiseScale = parseInt(e.target.value); document.getElementById('val-noise-scale').innerText = settings.noiseScale; worldSys.scale = settings.noiseScale; });
+    // NEW: Bind Dungeon Size
+    bindInput('debug-dungeon-size', (e) => { settings.dungeonSize = parseInt(e.target.value); document.getElementById('val-dungeon-size').innerText = settings.dungeonSize; });
 
     const switchTab = (mode) => {
         editor.mode = mode; 
@@ -352,7 +355,7 @@ function setupUI() {
 
     const setTool = (toolName, btnId) => {
         editor.activeTool = toolName;
-        ['btn-tool-brush', 'btn-tool-fill', 'btn-tool-origin', 'btn-tool-eraser-draw', 'btn-tool-line', 'btn-tool-rect', 'btn-tool-circ', 'btn-tool-door', 'btn-tool-spawner'].forEach(id => {
+        ['btn-tool-brush', 'btn-tool-fill', 'btn-tool-origin', 'btn-tool-eraser-draw', 'btn-tool-line', 'btn-tool-rect', 'btn-tool-circ', 'btn-tool-door', 'btn-tool-spawner', 'btn-tool-outside'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.remove('active-tool');
         });
@@ -370,6 +373,7 @@ function setupUI() {
     bindClick('btn-tool-circ', () => setTool('CIRCLE', 'btn-tool-circ'));
     bindClick('btn-tool-door', () => setTool('DOOR', 'btn-tool-door'));
     bindClick('btn-tool-spawner', () => setTool('SPAWNER', 'btn-tool-spawner'));
+    bindClick('btn-tool-outside', () => setTool('OUTSIDE', 'btn-tool-outside')); // NEW
 
     bindClick('btn-undo', () => { editor.undo(); audio.playSFX('ui_click'); });
     bindClick('btn-redo', () => { editor.redo(); audio.playSFX('ui_click'); });
@@ -485,10 +489,15 @@ function setupUI() {
         if (globalSelectedIndex !== null) { 
             player.equippedShip = editor.partsLibrary[globalSelectedIndex]; 
             for (let e of enemySys.enemies) e.blueprint = player.equippedShip;
+            
+            // NEW: Automatically load it into the Studio viewer so you can see what you equipped!
+            document.getElementById('btn-action-load').click();
+
             audio.playSFX('ui_click');
             alert(`"${player.equippedShip.name}" equipped! Enemies updated too!`); 
         } 
-    });
+    }); 
+    
     bindClick('btn-action-load', () => {
         if (globalSelectedIndex !== null) {
             let part = editor.partsLibrary[globalSelectedIndex];
@@ -1349,7 +1358,8 @@ function gameLoop() {
         
         stationSys.update(player, editor.partsLibrary, worldSys); stationSys.draw(ctx, camera, editor.colors, settings.debugMode);
 
-        dungeonSys.update(player, editor.partsLibrary, enemySys, worldSys);
+        // NEW: Passing in projectiles and enemyProjectiles
+        dungeonSys.update(player, editor.partsLibrary, enemySys, worldSys, asteroidSys, settings.dungeonSize, projectiles, enemyProjectiles);
         dungeonSys.draw(ctx, camera, editor.colors);
 
         drawPlayerShip();

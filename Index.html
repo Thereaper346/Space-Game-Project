@@ -118,6 +118,14 @@
                     <label style="color: #0088ff; font-size: 13px;">Noise Scale: [<span id="val-noise-scale" style="color:#fff;">4000</span>]</label>
                     <input type="range" id="debug-noise-scale" min="500" max="15000" step="100" value="4000" style="width: 100px;">
                 </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #0088ff; font-size: 13px;">Noise Scale: [<span id="val-noise-scale" style="color:#fff;">4000</span>]</label>
+                    <input type="range" id="debug-noise-scale" min="500" max="15000" step="100" value="4000" style="width: 100px;">
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                    <label style="color: #ff00ff; font-size: 13px;">Maze Rooms: [<span id="val-dungeon-size" style="color:#fff;">30</span>]</label>
+                    <input type="range" id="debug-dungeon-size" min="5" max="100" value="30" style="width: 100px;">
+                </div>
             </div>
             <button id="btn-close-settings" style="background: #550000;">CLOSE SETTINGS</button>
         </div>
@@ -193,15 +201,16 @@
                 </div>
 
                 <div style="display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px;">
-                    <button id="btn-tool-brush" class="tool-toggle active-tool" style="flex: 1 0 30%; font-size: 11px;">🖌️ BRUSH</button>
-                    <button id="btn-tool-fill" class="tool-toggle" style="flex: 1 0 30%; font-size: 11px;">🪣 FILL</button>
-                    <button id="btn-tool-eraser-draw" class="tool-toggle" style="flex: 1 0 30%; font-size: 11px;">🧽 ERASE</button>
-                    <button id="btn-tool-line" class="tool-toggle" style="flex: 1 0 30%; font-size: 11px;">📏 LINE</button>
-                    <button id="btn-tool-rect" class="tool-toggle" style="flex: 1 0 30%; font-size: 11px;">🟥 RECT</button>
-                    <button id="btn-tool-circ" class="tool-toggle" style="flex: 1 0 30%; font-size: 11px;">⭕ CIRC</button>
-                    <button id="btn-tool-origin" class="tool-toggle" style="flex: 1 0 30%; color: #ff8800; border-color: #ff8800; font-size: 11px;" title="Set Pivot">🎯 ORIGIN</button>
-                    <button id="btn-tool-door" class="tool-toggle" style="flex: 1 0 30%; color: #00ffcc; border-color: #00ffcc; font-size: 11px;" title="Add Door">🚪 DOOR</button>
-                    <button id="btn-tool-spawner" class="tool-toggle" style="flex: 1 0 30%; color: #ff0044; border-color: #ff0044; font-size: 11px;" title="Add Spawner">💀 SPAWN</button>
+                    <button id="btn-tool-brush" class="tool-toggle active-tool" style="flex: 1 0 22%; font-size: 11px;">🖌️ BRUSH</button>
+                    <button id="btn-tool-fill" class="tool-toggle" style="flex: 1 0 22%; font-size: 11px;">🪣 FILL</button>
+                    <button id="btn-tool-eraser-draw" class="tool-toggle" style="flex: 1 0 22%; font-size: 11px;">🧽 ERASE</button>
+                    <button id="btn-tool-line" class="tool-toggle" style="flex: 1 0 22%; font-size: 11px;">📏 LINE</button>
+                    <button id="btn-tool-rect" class="tool-toggle" style="flex: 1 0 22%; font-size: 11px;">🟥 RECT</button>
+                    <button id="btn-tool-circ" class="tool-toggle" style="flex: 1 0 22%; font-size: 11px;">⭕ CIRC</button>
+                    <button id="btn-tool-origin" class="tool-toggle" style="flex: 1 0 22%; color: #ff8800; border-color: #ff8800; font-size: 11px;" title="Set Pivot">🎯 ORIGIN</button>
+                    <button id="btn-tool-door" class="tool-toggle" style="flex: 1 0 22%; color: #00ffcc; border-color: #00ffcc; font-size: 11px;" title="Add Door">🚪 DOOR</button>
+                    <button id="btn-tool-spawner" class="tool-toggle" style="flex: 1 0 22%; color: #ff0044; border-color: #ff0044; font-size: 11px;" title="Add Spawner">💀 SPAWN</button>
+                    <button id="btn-tool-outside" class="tool-toggle" style="flex: 1 0 22%; color: #00ff00; border-color: #00ff00; font-size: 11px;" title="Outside Shell Connector">🧱 SHELL</button>
                 </div>
 
                 <label>Palette:</label>
