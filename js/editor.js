@@ -1,5 +1,5 @@
 // ============================================================================
-// FILE: editor.js (UPGRADED WITH SHAPES, ERASER, DOORS, AND SPAWNERS)
+// FILE: editor.js (Added OUTSIDE Shell Marker Support)
 // ============================================================================
 
 export class ShipEditor {
@@ -23,11 +23,10 @@ export class ShipEditor {
         this.partsLibrary = []; 
         this.showRedGrid = false; 
         
-        // NEW: Drag and Tool Tracking
         this.activeTool = 'BRUSH'; 
         this.dragStartX = null;
         this.dragStartY = null;
-        this.previewGrid = null; // Holds shape preview before mouse up
+        this.previewGrid = null; 
         this.isErasingStroke = false; 
         
         this.history = { 
@@ -44,8 +43,8 @@ export class ShipEditor {
         ];
         
         this.currentColor = 1; 
-        // NEW: Added doors and spawners to properties
-        this.currentProps = { type: 'hull', thrustDir: 'down', shootDir: 'up', originX: 8, originY: 8, doors: [], spawners: [] };
+        // NEW: Added outsides array to properties
+        this.currentProps = { type: 'hull', thrustDir: 'down', shootDir: 'up', originX: 8, originY: 8, doors: [], spawners: [], outsides: [] };
         this.editingIndex = null;
         this.selectedAssembleIndex = null;
     }
@@ -145,6 +144,7 @@ export class ShipEditor {
         
         this.currentProps.doors = [];
         this.currentProps.spawners = [];
+        this.currentProps.outsides = [];
         this.deselect();
     }
 
@@ -165,7 +165,6 @@ export class ShipEditor {
         }
     }
 
-    // NEW: Handles drawing the preview data for shapes
     drawShapePreview(x0, y0, x1, y1, tool, color, size) {
         if (tool === 'LINE') {
             let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
@@ -205,7 +204,6 @@ export class ShipEditor {
         }
     }
 
-    // NEW: Now accepts a MouseUp trigger to bake shapes into the grid
     paint(mouseX, mouseY, canvas, isFirstClick, isMouseUp = false) {
         const offset = this.getGridOffset(canvas);
         const gridX = Math.floor((mouseX - offset.startX) / offset.cellSize);
@@ -214,7 +212,6 @@ export class ShipEditor {
         if (this.mode === 'PART' || this.mode === 'WORLD_PART') {
             const activeGrid = this.getActiveGrid();
 
-            // When mouse is released, bake the preview onto the real grid
             if (isMouseUp) {
                 if (this.previewGrid) {
                     for(let r=0; r < offset.size; r++) {
@@ -246,7 +243,6 @@ export class ShipEditor {
                     }
                     activeGrid[gridY][gridX] = this.isErasingStroke ? 0 : colorToUse;
                 }
-                // META TOOLS (Doors and Spawners)
                 else if (this.activeTool === 'DOOR' && isFirstClick) {
                     if (!this.currentProps.doors) this.currentProps.doors = [];
                     let idx = this.currentProps.doors.findIndex(d => d.x === gridX && d.y === gridY);
@@ -259,13 +255,19 @@ export class ShipEditor {
                     if (idx > -1) this.currentProps.spawners.splice(idx, 1);
                     else this.currentProps.spawners.push({x: gridX, y: gridY});
                 }
+                // NEW: Logic to record OUTSIDE markers
+                else if (this.activeTool === 'OUTSIDE' && isFirstClick) {
+                    if (!this.currentProps.outsides) this.currentProps.outsides = [];
+                    let idx = this.currentProps.outsides.findIndex(s => s.x === gridX && s.y === gridY);
+                    if (idx > -1) this.currentProps.outsides.splice(idx, 1);
+                    else this.currentProps.outsides.push({x: gridX, y: gridY});
+                }
                 else if (this.activeTool === 'ORIGIN' && isFirstClick) {
                     this.currentProps.originX = gridX; this.currentProps.originY = gridY;
                 }
                 else if (this.activeTool === 'FILL' && isFirstClick) {
                     this.floodFill(activeGrid, gridX, gridY, activeGrid[gridY][gridX], colorToUse);
                 }
-                // SHAPE TOOLS
                 else if (['LINE', 'RECT', 'RECT_FILL', 'CIRCLE', 'CIRCLE_FILL'].includes(this.activeTool)) {
                     if (this.dragStartX !== null && this.dragStartY !== null) {
                         this.previewGrid = this.createEmptyGrid(offset.size);
@@ -313,6 +315,7 @@ export class ShipEditor {
         if (this.currentProps.originX === undefined) { this.currentProps.originX = 8; this.currentProps.originY = 8; }
         if (!this.currentProps.doors) this.currentProps.doors = [];
         if (!this.currentProps.spawners) this.currentProps.spawners = [];
+        if (!this.currentProps.outsides) this.currentProps.outsides = []; // NEW
         
         let pSize = part.gridSize || 16;
 
@@ -335,7 +338,6 @@ export class ShipEditor {
         if (this.mode === 'PART' || this.mode === 'WORLD_PART') {
             const activeGrid = this.getActiveGrid();
             
-            // Draw Onion Skin
             if (this.currentFrame > 0) {
                 const prevGrid = this.mode === 'WORLD_PART' ? this.worldPartFrames[this.currentFrame - 1] : this.partFrames[this.currentFrame - 1];
                 for (let row = 0; row < offset.size; row++) {
@@ -352,22 +354,19 @@ export class ShipEditor {
                 }
             }
 
-            // Draw Base Grid
             for (let row = 0; row < offset.size; row++) {
                 for (let col = 0; col < offset.size; col++) {
                     const x = offset.startX + col * offset.cellSize;
                     const y = offset.startY + row * offset.cellSize;
                     
-                    // Base Colors
                     if (activeGrid[row][col] !== 0) {
                         ctx.fillStyle = this.colors[activeGrid[row][col]]; 
                         ctx.fillRect(x, y, offset.cellSize, offset.cellSize);
                     }
                     
-                    // Shape Previews
                     if (this.previewGrid && this.previewGrid[row][col] !== 0) {
                         if (this.previewGrid[row][col] === -1) {
-                            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; // Eraser preview shadow
+                            ctx.fillStyle = "rgba(0, 0, 0, 0.5)"; 
                             ctx.fillRect(x, y, offset.cellSize, offset.cellSize);
                         } else {
                             ctx.fillStyle = this.colors[this.previewGrid[row][col]];
@@ -379,7 +378,6 @@ export class ShipEditor {
                 }
             }
 
-            // Draw Meta Markers (Doors & Spawners)
             if (this.currentProps.doors) {
                 ctx.strokeStyle = "#00ffcc"; ctx.lineWidth = 3;
                 for (let d of this.currentProps.doors) {
@@ -399,8 +397,24 @@ export class ShipEditor {
                 }
                 ctx.lineWidth = 1;
             }
+            // NEW: Draw OUTSIDE Markers as green boxes
+            if (this.currentProps.outsides) {
+                ctx.strokeStyle = "#00ff00"; ctx.lineWidth = 3;
+                for (let o of this.currentProps.outsides) {
+                    const ox = offset.startX + o.x * offset.cellSize; const oy = offset.startY + o.y * offset.cellSize;
+                    ctx.strokeRect(ox + 4, oy + 4, offset.cellSize - 8, offset.cellSize - 8);
+                    
+                    // Draw a little hash to show which way it points
+                    ctx.beginPath(); ctx.moveTo(ox + offset.cellSize/2, oy + offset.cellSize/2);
+                    if (o.x <= 1) ctx.lineTo(ox, oy + offset.cellSize/2); 
+                    else if (o.x >= offset.size - 2) ctx.lineTo(ox + offset.cellSize, oy + offset.cellSize/2); 
+                    else if (o.y <= 1) ctx.lineTo(ox + offset.cellSize/2, oy); 
+                    else if (o.y >= offset.size - 2) ctx.lineTo(ox + offset.cellSize/2, oy + offset.cellSize); 
+                    ctx.stroke();
+                }
+                ctx.lineWidth = 1;
+            }
 
-            // Draw Origin and Vector Arrows
             if (this.currentProps.type === 'engine') this.drawVectorArrow(ctx, offset);
             if (this.currentProps.type === 'weapon') this.drawWeaponArrow(ctx, offset);
             
