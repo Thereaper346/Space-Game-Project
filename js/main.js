@@ -689,6 +689,12 @@ function updateLibraryUI() {
 window.addEventListener('keydown', (e) => {
     if (gameState === 'GAME_OVER') return; 
 
+    // NEW: Cinematic Camera Zoom
+    if ((e.key === 'z' || e.key === 'Z') && gameState === 'GAME') {
+        camera.toggleZoom();
+        audio.playSFX('ui_click'); 
+    }
+
     if (e.key === 'e' || e.key === 'E') {
         if (gameState === 'GAME' && stationSys.canDock && !player.isCloaked) {
             gameState = 'SHOP'; activeShopTab = 'BUY'; resetShopCounters(); audio.playSFX('ui_click');
@@ -1306,6 +1312,14 @@ function gameLoop() {
 
         let currentBiome = worldSys.getBiome(player.x, player.y);
         ctx.fillStyle = currentBiome.bgTint; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // --- NEW: START CAMERA ZOOM ---
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(camera.currentScale, camera.currentScale);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        // ------------------------------
+
         if (stars && typeof stars.draw === 'function') stars.draw(ctx, camera, canvas);
         
         let currentSpeed = Math.hypot(player.vx, player.vy);
@@ -1363,6 +1377,11 @@ function gameLoop() {
         dungeonSys.draw(ctx, camera, editor.colors);
 
         drawPlayerShip();
+        
+        // --- NEW: END CAMERA ZOOM ---
+        // Restore context so the HUD UI doesn't get shrunk!
+        ctx.restore();
+        // ----------------------------
 
         if (stationSys.canDock && !player.isCloaked) {
             ctx.fillStyle = '#00ffcc'; ctx.font = 'bold 18px Courier New'; ctx.shadowBlur = 10; ctx.shadowColor = '#00ffcc';
@@ -1375,11 +1394,18 @@ function gameLoop() {
         let currentBiome = worldSys.getBiome(player.x, player.y);
         ctx.fillStyle = currentBiome.bgTint; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
+        ctx.save(); ctx.translate(canvas.width / 2, canvas.height / 2); ctx.scale(camera.currentScale, camera.currentScale); ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
         if (stars && typeof stars.draw === 'function') stars.draw(ctx, camera, canvas);
         asteroidSys.draw(ctx, camera, editor.colors, false); enemySys.draw(ctx, camera, editor.colors, false, settings.enemyAggression); stationSys.draw(ctx, camera, editor.colors, false);
         dungeonSys.draw(ctx, camera, editor.colors);
         drawPlayerShip(); drawHUD(currentBiome, enemySys.enemies, itemSys.items, worldSys, stationSys.stations, dungeonSys.dungeons);
+dungeonSys.draw(ctx, camera, editor.colors);
+        drawPlayerShip(); 
+        
+        ctx.restore(); // NEW: END CAMERA ZOOM
 
+        drawHUD(currentBiome, enemySys.enemies, itemSys.items, worldSys, stationSys.stations, dungeonSys.dungeons);
         if (gameState === 'INVENTORY') drawInventoryScreen();
         if (gameState === 'SHOP') {
             drawShopScreen();
@@ -1391,6 +1417,9 @@ function gameLoop() {
         }
     } else if (gameState === 'GAME_OVER') {
         camera.x += 1; camera.y += 1;
+
+        ctx.save(); ctx.translate(canvas.width / 2, canvas.height / 2); ctx.scale(camera.currentScale, camera.currentScale); ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
         if (stars && typeof stars.draw === 'function') stars.draw(ctx, camera, canvas);
         
         ctx.save();
@@ -1403,6 +1432,8 @@ function gameLoop() {
         ctx.restore();
         asteroidSys.draw(ctx, camera, editor.colors, settings.debugMode); enemySys.draw(ctx, camera, editor.colors, settings.debugMode, settings.enemyAggression); stationSys.draw(ctx, camera, editor.colors, settings.debugMode);
         dungeonSys.draw(ctx, camera, editor.colors);
+
+        ctx.restore(); // NEW: END CAMERA ZOOM
     } else if (gameState === 'EDITOR') { 
         if (editor && typeof editor.draw === 'function') editor.draw(ctx, canvas); 
     } else { 
