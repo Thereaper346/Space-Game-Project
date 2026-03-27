@@ -1364,13 +1364,13 @@ function gameLoop() {
         }
 
         itemSys.update(player); itemSys.draw(ctx, camera, editor.colors, settings.debugMode);
-        asteroidSys.update(projectiles, player, itemSys, editor.partsLibrary, settings.dropRate, stationSys.stations); asteroidSys.draw(ctx, camera, editor.colors, settings.debugMode);
+        asteroidSys.update(projectiles, player, itemSys, editor.partsLibrary, settings.dropRate, stationSys.stations, worldSys, dungeonSys); asteroidSys.draw(ctx, camera, editor.colors, settings.debugMode);
 
         let activeMaxEnemies = currentBiome.type === 'safe' ? 0 : settings.enemyRate;
         enemySys.update(projectiles, enemyProjectiles, player, itemSys, editor.partsLibrary, settings.dropRate, settings.laserSpeed, activeMaxEnemies, settings.enemyAggression, worldSys, stationSys.stations);
         enemySys.draw(ctx, camera, editor.colors, settings.debugMode, settings.enemyAggression);
         
-        stationSys.update(player, editor.partsLibrary, worldSys); stationSys.draw(ctx, camera, editor.colors, settings.debugMode);
+        stationSys.update(player, editor.partsLibrary, worldSys, dungeonSys); stationSys.draw(ctx, camera, editor.colors, settings.debugMode);
 
         // NEW: Passing in projectiles and enemyProjectiles
         dungeonSys.update(player, editor.partsLibrary, enemySys, worldSys, asteroidSys, settings.dungeonSize, projectiles, enemyProjectiles);

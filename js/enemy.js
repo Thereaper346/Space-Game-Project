@@ -1,3 +1,6 @@
+// ============================================================================
+// FILE: enemy.js (Fixed Center-Scale Zoom Culling bug)
+// ============================================================================
 import { audio } from './audio.js';
 
 export class EnemyManager {
@@ -6,6 +9,9 @@ export class EnemyManager {
         this.particles = [];
         this.debris = [];
         this.hostileTint = { r: 255, g: 0, b: 68 }; 
+        
+        this.playerTrail = [];
+        this.trailIdCounter = 0;
     }
 
     getTintedColor(originalHex, opacity = 0.5) {
@@ -31,13 +37,13 @@ export class EnemyManager {
     managePopulation(playerX, playerY, maxEnemies, blueprint, worldSys, stations) {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             let dist = Math.hypot(this.enemies[i].x - playerX, this.enemies[i].y - playerY);
-            if (dist > 3000) this.enemies.splice(i, 1); 
+            if (dist > 5000) this.enemies.splice(i, 1); 
         }
 
         let attempts = 0;
         while (this.enemies.length < maxEnemies && maxEnemies > 0 && blueprint && attempts < 10) {
             let spawnAngle = Math.random() * Math.PI * 2;
-            let spawnDist = 1200 + Math.random() * 400; 
+            let spawnDist = 2800 + Math.random() * 600; 
             
             let sx = playerX + Math.cos(spawnAngle) * spawnDist;
             let sy = playerY + Math.sin(spawnAngle) * spawnDist;
@@ -106,8 +112,16 @@ export class EnemyManager {
         }
     }
 
-    update(playerProjectiles, enemyProjectiles, player, itemSys, library, dropRate, playerLaserSpeed, maxEnemies, aggressionFactor, worldSys, stations) {
+    update(playerProjectiles, enemyProjectiles, player, itemSys, library, dropRate, playerLaserSpeed, maxEnemies, aggressionFactor, worldSys, stations, dungeonSys, asteroidSys) {
         
+        if (player && player.hull > 0) {
+            let lastNode = this.playerTrail[this.playerTrail.length - 1];
+            if (!lastNode || Math.hypot(player.x - lastNode.x, player.y - lastNode.y) > 60) {
+                this.playerTrail.push({ id: this.trailIdCounter++, x: player.x, y: player.y });
+                if (this.playerTrail.length > 200) this.playerTrail.shift();
+            }
+        }
+
         if (player && player.hull > 0 && player.equippedShip) {
             this.managePopulation(player.x, player.y, maxEnemies, player.equippedShip, worldSys, stations);
         }
@@ -163,6 +177,36 @@ export class EnemyManager {
                         moveTargetY = player.y - (pFaceY * 300);
                     }
 
+                    if (distToPlayer > 450 && this.playerTrail.length > 0) {
+                        if (enemy.targetTrailId === undefined) {
+                            let closestDist = Infinity;
+                            for (let node of this.playerTrail) {
+                                let d = Math.hypot(enemy.x - node.x, enemy.y - node.y);
+                                if (d < closestDist) {
+                                    closestDist = d;
+                                    enemy.targetTrailId = node.id;
+                                }
+                            }
+                        }
+
+                        let targetNode = this.playerTrail.find(n => n.id === enemy.targetTrailId);
+                        
+                        if (targetNode) {
+                            moveTargetX = targetNode.x;
+                            moveTargetY = targetNode.y;
+                            
+                            if (Math.hypot(enemy.x - moveTargetX, enemy.y - moveTargetY) < 120) {
+                                enemy.targetTrailId++;
+                            }
+                        } else {
+                            enemy.targetTrailId = this.playerTrail[0].id;
+                            moveTargetX = this.playerTrail[0].x;
+                            moveTargetY = this.playerTrail[0].y;
+                        }
+                    } else {
+                        enemy.targetTrailId = undefined; 
+                    }
+
                     let distToMoveTarget = Math.hypot(moveTargetX - enemy.x, moveTargetY - enemy.y);
                     let moveAngle = Math.atan2(moveTargetY - enemy.y, moveTargetX - enemy.x);
                     
@@ -182,6 +226,70 @@ export class EnemyManager {
                         enemy.vx -= Math.cos(aimAngle) * activeThrust * 0.6;
                         enemy.vy -= Math.sin(aimAngle) * activeThrust * 0.6;
                     }
+
+                    let avoidVx = 0;
+                    let avoidVy = 0;
+
+                    if (asteroidSys) {
+                        for (let ast of asteroidSys.asteroids) {
+                            let dx = enemy.x - ast.x;
+                            let dy = enemy.y - ast.y;
+                            let dist = Math.hypot(dx, dy);
+                            let buffer = enemy.radius + ast.radius + 30; 
+                            if (dist < buffer && dist > 0) {
+                                avoidVx += (dx / dist) * (buffer - dist) * 0.05;
+                                avoidVy += (dy / dist) * (buffer - dist) * 0.05;
+                            }
+                        }
+                    }
+
+                    if (dungeonSys) {
+                        for (let d of dungeonSys.dungeons) {
+                            if (Math.hypot(enemy.x - d.x, enemy.y - d.y) > 4000) continue; 
+                            
+                            for (let room of d.rooms) {
+                                let pSize = room.blueprint.gridSize || 32;
+                                let halfSize = (pSize * dungeonSys.wallScale) / 2;
+                                let dx = enemy.x - room.worldX;
+                                let dy = enemy.y - room.worldY;
+                                
+                                if (Math.abs(dx) < halfSize + 100 && Math.abs(dy) < halfSize + 100) {
+                                    let gridX = Math.floor((dx + halfSize) / dungeonSys.wallScale);
+                                    let gridY = Math.floor((dy + halfSize) / dungeonSys.wallScale);
+                                    let is2D = Array.isArray(room.blueprint.data[0]);
+                                    
+                                    for(let ro = -2; ro <= 2; ro++) {
+                                        for(let co = -2; co <= 2; co++) {
+                                            let cY = gridY + ro;
+                                            let cX = gridX + co;
+                                            if (cY >= 0 && cY < pSize && cX >= 0 && cX < pSize) {
+                                                let colorVal = is2D ? (room.blueprint.data[cY] ? room.blueprint.data[cY][cX] : 0) : room.blueprint.data[cY * pSize + cX];
+                                                
+                                                if (colorVal !== 0 && colorVal !== null && colorVal !== 'transparent') {
+                                                    let wallX = room.worldX - halfSize + (cX * dungeonSys.wallScale) + (dungeonSys.wallScale / 2);
+                                                    let wallY = room.worldY - halfSize + (cY * dungeonSys.wallScale) + (dungeonSys.wallScale / 2);
+                                                    
+                                                    let wDx = enemy.x - wallX;
+                                                    let wDy = enemy.y - wallY;
+                                                    let wDist = Math.hypot(wDx, wDy);
+                                                    
+                                                    let buffer = enemy.radius + (dungeonSys.wallScale / 2) + 7; 
+                                                    
+                                                    if (wDist < buffer && wDist > 0) {
+                                                        avoidVx += (wDx / wDist) * (buffer - wDist) * 0.2;
+                                                        avoidVy += (wDy / wDist) * (buffer - wDist) * 0.2;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    enemy.vx += avoidVx;
+                    enemy.vy += avoidVy;
 
                     enemy.vx *= 0.98;
                     enemy.vy *= 0.98;
@@ -344,7 +452,16 @@ export class EnemyManager {
             let screenX = enemy.x - camera.x;
             let screenY = enemy.y - camera.y;
 
-            if (screenX < -400 || screenX > ctx.canvas.width + 400 || screenY < -400 || screenY > ctx.canvas.height + 400) continue;
+            // FIX: True Camera Bounds Math.
+            // Calculates the exact edge of your screen based on the current zoom!
+            let scale = camera.currentScale || 1.0;
+            let cx = ctx.canvas.width / 2;
+            let cy = ctx.canvas.height / 2;
+            let viewRadiusX = (ctx.canvas.width / scale) / 2;
+            let viewRadiusY = (ctx.canvas.height / scale) / 2;
+
+            if (screenX < cx - viewRadiusX - 400 || screenX > cx + viewRadiusX + 400 || 
+                screenY < cy - viewRadiusY - 400 || screenY > cy + viewRadiusY + 400) continue;
 
             ctx.save();
             ctx.translate(screenX, screenY);
@@ -361,17 +478,15 @@ export class EnemyManager {
             if (enemy.blueprint) {
                 const hostileOpacity = 0.15 + (aggressionFactor / 100) * 0.4; 
 
-                // Support Raw S-Part Enemies
                 if (enemy.blueprint.format === 'part' || !enemy.blueprint.format) {
                     const gridSize = enemy.blueprint.gridSize || 16;
                     const startX = -(gridSize * flightScale) / 2;
                     const startY = startX;
                     for (let r = 0; r < gridSize; r++) {
-                        if (!enemy.blueprint.data[r]) continue; // Anti-Crash Guard
+                        if (!enemy.blueprint.data[r]) continue; 
                         for (let c = 0; c < gridSize; c++) {
                             let colorVal = enemy.blueprint.data[r][c];
                             if (colorVal !== 0 && colorVal !== null && colorVal !== undefined) {
-                                // Universal Color Translator
                                 let originalHex = (typeof colorVal === 'number') ? playerPalette[colorVal] : colorVal;
                                 ctx.fillStyle = this.getTintedColor(originalHex, hostileOpacity);
                                 ctx.fillRect(startX + (c * flightScale), startY + (r * flightScale), flightScale, flightScale);
@@ -400,11 +515,10 @@ export class EnemyManager {
 
                                 const pGridSize = part.gridSize || 16;
                                 for (let pRow = 0; pRow < pGridSize; pRow++) {
-                                    if (!activeData[pRow]) continue; // Anti-Crash Guard
+                                    if (!activeData[pRow]) continue; 
                                     for (let pCol = 0; pCol < pGridSize; pCol++) {
                                         let colorVal = activeData[pRow][pCol];
                                         if (colorVal !== 0 && colorVal !== null && colorVal !== undefined) { 
-                                            // Universal Color Translator
                                             let originalHex = (typeof colorVal === 'number') ? playerPalette[colorVal] : colorVal;
                                             ctx.fillStyle = this.getTintedColor(originalHex, hostileOpacity); 
                                             ctx.fillRect(partX + (pCol * flightScale), partY + (pRow * flightScale), flightScale, flightScale); 

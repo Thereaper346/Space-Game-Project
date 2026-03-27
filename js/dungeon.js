@@ -1,5 +1,5 @@
 // ============================================================================
-// FILE: dungeon.js (The Procedural Maze Architect v4.2 - Floating Corner Fix)
+// FILE: dungeon.js (Rolled back to stable physics, retained zoom culling)
 // ============================================================================
 
 export class DungeonManager {
@@ -128,7 +128,6 @@ export class DungeonManager {
             for (let room of newDungeon.rooms) {
                 let rSize = room.blueprint.gridSize || 32;
 
-                // FIX: Only check the 4 flat sides. NO DIAGONALS!
                 let dirs = [
                     {dx: 1, dy: 0, req: 'LEFT'}, {dx: -1, dy: 0, req: 'RIGHT'}, 
                     {dx: 0, dy: 1, req: 'TOP'}, {dx: 0, dy: -1, req: 'BOTTOM'}
@@ -265,6 +264,7 @@ export class DungeonManager {
                             let colorVal = is2D ? (room.blueprint.data[gridY] ? room.blueprint.data[gridY][gridX] : 0) : room.blueprint.data[gridY * pSize + gridX];
 
                             if (colorVal !== 0 && colorVal !== null && colorVal !== 'transparent') {
+                                // FIX: Restored original stable physics!
                                 let impactSpeed = Math.hypot(ent.vx, ent.vy);
                                 ent.vx *= -0.4;
                                 ent.vy *= -0.4;
@@ -306,17 +306,30 @@ export class DungeonManager {
     }
 
     draw(ctx, camera, palette) {
+        // --- TRUE CAMERA BOUNDS MATH ---
+        let scale = camera.currentScale || 1.0;
+        let cx = ctx.canvas.width / 2;
+        let cy = ctx.canvas.height / 2;
+        let viewRadiusX = (ctx.canvas.width / scale) / 2;
+        let viewRadiusY = (ctx.canvas.height / scale) / 2;
+
         for (let d of this.dungeons) {
             for (let room of d.rooms) {
                 let screenX = room.worldX - camera.x;
                 let screenY = room.worldY - camera.y;
 
-                if (screenX < -2000 || screenX > ctx.canvas.width + 2000 || screenY < -2000 || screenY > ctx.canvas.height + 2000) continue;
+                let pSize = room.blueprint.gridSize || 32;
+                let roomRadius = (pSize * this.wallScale) / 2;
+                let buffer = roomRadius + 400; 
+
+                if (screenX < cx - viewRadiusX - buffer || screenX > cx + viewRadiusX + buffer || 
+                    screenY < cy - viewRadiusY - buffer || screenY > cy + viewRadiusY + buffer) {
+                    continue;
+                }
 
                 ctx.save();
                 ctx.translate(screenX, screenY);
 
-                let pSize = room.blueprint.gridSize || 32;
                 let startX = -(pSize * this.wallScale) / 2;
                 let startY = startX;
                 let is2D = Array.isArray(room.blueprint.data[0]);

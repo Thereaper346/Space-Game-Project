@@ -1,5 +1,5 @@
 // ============================================================================
-// FILE: asteroids.js (Asteroids now vaporize on Station Shields!)
+// FILE: asteroids.js (Restored Spawn Distances & Boosted Belt Density)
 // ============================================================================
 import { audio } from './audio.js';
 
@@ -9,36 +9,80 @@ export class AsteroidManager {
         this.particles = [];
         this.debris = []; 
         this.targetCount = 20; 
+        
+        this.baseColors = [
+            { light: '#666666', dark: '#222222' }, 
+            { light: '#777777', dark: '#2a2a2a' }, 
+            { light: '#555555', dark: '#1a1a1a' }  
+        ];
+        this.globalLightAngle = -Math.PI / 4; 
     }
 
-    managePopulation(playerX, playerY) {
+    managePopulation(playerX, playerY, worldSys, dungeonSys) {
+        let currentBiome = 'wilderness';
+        if (worldSys) {
+            currentBiome = worldSys.getBiome(playerX, playerY).type;
+        }
+        
+        // BOOSTED: 20 normally, 100 in the asteroid belt!
+        this.targetCount = (currentBiome === 'asteroid_belt') ? 100 : 20;
+
         for (let i = this.asteroids.length - 1; i >= 0; i--) {
             let dist = Math.hypot(this.asteroids[i].x - playerX, this.asteroids[i].y - playerY);
-            if (dist > 3000) this.asteroids.splice(i, 1); 
+            if (dist > 15000) this.asteroids.splice(i, 1); 
         }
-        while (this.asteroids.length < this.targetCount) {
+        
+        let attempts = 0;
+        while (this.asteroids.length < this.targetCount && attempts < 30) {
+            attempts++;
             let spawnAngle = Math.random() * Math.PI * 2;
-            let spawnDist = 1500 + Math.random() * 500;
-            this.spawn(playerX + Math.cos(spawnAngle) * spawnDist, playerY + Math.sin(spawnAngle) * spawnDist);
+            
+            // FIX: Restored the tighter spawn radius so they actually appear near you!
+            // 2000 is just off-screen on a zoomed out monitor.
+            let spawnDist = 2000 + Math.random() * 1500;
+            
+            let sx = playerX + Math.cos(spawnAngle) * spawnDist;
+            let sy = playerY + Math.sin(spawnAngle) * spawnDist;
+
+            let hitDungeon = false;
+            if (dungeonSys) {
+                for (let d of dungeonSys.dungeons) {
+                    for (let room of d.rooms) {
+                        let pSize = room.blueprint.gridSize || 32;
+                        let halfSize = (pSize * dungeonSys.wallScale) / 2;
+                        if (Math.abs(sx - room.worldX) < halfSize + 800 && Math.abs(sy - room.worldY) < halfSize + 800) {
+                            hitDungeon = true; break;
+                        }
+                    }
+                    if (hitDungeon) break;
+                }
+            }
+
+            if (!hitDungeon) {
+                this.spawn(sx, sy);
+            }
         }
     }
 
     spawn(x, y) {
         let scale = Math.random() * 2.5 + 0.5; 
         let baseRadius = 60; 
-
         let maxHealth = Math.ceil(scale * 2) * 25;
 
         let vertices = [];
         let craters = []; 
-        
-        let numPoints = Math.floor(Math.random() * 10) + 5; 
-        let angleStep = (Math.PI * 2) / numPoints;
+        let numPoints = 40 + Math.floor(Math.random() * 20); 
+        let noiseSeed1 = Math.random() * 100;
+        let noiseSeed2 = Math.random() * 100;
         let maxRadius = 0;
 
         for(let i = 0; i < numPoints; i++) {
-            let angle = i * angleStep;
-            let r = baseRadius * (0.6 + Math.random() * 0.4); 
+            let angle = (i / numPoints) * Math.PI * 2;
+            let r = baseRadius;
+            r += Math.sin(angle * 3 + noiseSeed1) * (baseRadius * 0.10); 
+            r += Math.cos(angle * 6 + noiseSeed2) * (baseRadius * 0.05); 
+            r += Math.sin(angle * 14) * (baseRadius * 0.02);             
+
             if (r > maxRadius) maxRadius = r;
             vertices.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
         }
@@ -54,6 +98,8 @@ export class AsteroidManager {
             });
         }
 
+        let palette = this.baseColors[Math.floor(Math.random() * this.baseColors.length)];
+
         this.asteroids.push({
             x: x, y: y,
             vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2,
@@ -62,7 +108,8 @@ export class AsteroidManager {
             scale: scale, 
             hp: maxHealth, 
             vertices: vertices, craters: craters,
-            radius: maxRadius * scale 
+            radius: maxRadius * scale, 
+            palette: palette
         });
     }
 
@@ -121,20 +168,14 @@ export class AsteroidManager {
         return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
     }
 
-    // ==========================================
-    // FIX: ADDED STATIONS ARRAY TO UPDATE LOOP
-    // ==========================================
-    update(projectiles, player, itemSys, library, dropRate = 100, stations = []) {
-        if (player) this.managePopulation(player.x, player.y);
+    update(projectiles, player, itemSys, library, dropRate = 100, stations = [], worldSys = null, dungeonSys = null) {
+        if (player) this.managePopulation(player.x, player.y, worldSys, dungeonSys);
 
         let shipRadius = player && player.equippedShip ? (player.equippedShip.gridSize * 16 * 2) / 2 : 30;
 
         for (let i = this.asteroids.length - 1; i >= 0; i--) {
             let ast = this.asteroids[i];
             
-            // ==========================================
-            // FIX: SANCTUARY VAPORIZATION FOR ASTEROIDS!
-            // ==========================================
             let hitAura = false;
             if (stations) {
                 for (let s of stations) {
@@ -184,8 +225,16 @@ export class AsteroidManager {
                     }
 
                     if (crashed) {
+                        let impactSpeed = Math.hypot(player.vx, player.vy);
+                        let knockback = Math.max(impactSpeed * 0.8, 3); 
                         let angle = Math.atan2(player.y - ast.y, player.x - ast.x);
-                        player.vx = Math.cos(angle) * 15; player.vy = Math.sin(angle) * 15;
+                        
+                        player.vx = Math.cos(angle) * knockback; 
+                        player.vy = Math.sin(angle) * knockback;
+                        
+                        player.x += Math.cos(angle) * 5;
+                        player.y += Math.sin(angle) * 5;
+                        
                         player.hull -= 20; 
                         this.explode(ast, itemSys, library, dropRate);
                         this.asteroids.splice(i, 1);
@@ -243,15 +292,51 @@ export class AsteroidManager {
     }
 
     draw(ctx, camera, palette, debugMode = false) {
+        let scaleCam = camera.currentScale || 1.0;
+        let viewRadiusX = (ctx.canvas.width / scaleCam) / 2;
+        let viewRadiusY = (ctx.canvas.height / scaleCam) / 2;
+        let cx = ctx.canvas.width / 2;
+        let cy = ctx.canvas.height / 2;
+
         for (let ast of this.asteroids) {
             let screenX = ast.x - camera.x;
             let screenY = ast.y - camera.y;
+
+            let buffer = (ast.radius * ast.scale) + 200;
+            if (screenX < cx - viewRadiusX - buffer || screenX > cx + viewRadiusX + buffer || 
+                screenY < cy - viewRadiusY - buffer || screenY > cy + viewRadiusY + buffer) {
+                continue;
+            }
 
             ctx.save();
             ctx.translate(screenX, screenY);
             ctx.rotate(ast.angle);
             ctx.scale(ast.scale, ast.scale); 
             
+            let shadowOffsetX = Math.cos(this.globalLightAngle + Math.PI) * (3 / ast.scale);
+            let shadowOffsetY = Math.sin(this.globalLightAngle + Math.PI) * (3 / ast.scale);
+            
+            let rotShadowX = shadowOffsetX * Math.cos(-ast.angle) - shadowOffsetY * Math.sin(-ast.angle);
+            let rotShadowY = shadowOffsetX * Math.sin(-ast.angle) + shadowOffsetY * Math.cos(-ast.angle);
+
+            ctx.beginPath();
+            ctx.moveTo(ast.vertices[0].x + rotShadowX, ast.vertices[0].y + rotShadowY);
+            for (let i = 1; i < ast.vertices.length; i++) {
+                ctx.lineTo(ast.vertices[i].x + rotShadowX, ast.vertices[i].y + rotShadowY);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#111111'; 
+            ctx.fill();
+
+            let gradX1 = Math.cos(-ast.angle + this.globalLightAngle) * 60;
+            let gradY1 = Math.sin(-ast.angle + this.globalLightAngle) * 60;
+            let gradX2 = Math.cos(-ast.angle + this.globalLightAngle + Math.PI) * 60;
+            let gradY2 = Math.sin(-ast.angle + this.globalLightAngle + Math.PI) * 60;
+
+            let gradient = ctx.createLinearGradient(gradX1, gradY1, gradX2, gradY2);
+            gradient.addColorStop(0, ast.palette.light); 
+            gradient.addColorStop(1, ast.palette.dark);  
+
             ctx.beginPath();
             ctx.moveTo(ast.vertices[0].x, ast.vertices[0].y);
             for(let v = 1; v < ast.vertices.length; v++) {
@@ -259,25 +344,32 @@ export class AsteroidManager {
             }
             ctx.closePath(); 
 
-            ctx.fillStyle = '#444444'; 
+            ctx.fillStyle = gradient; 
             ctx.fill();
-            ctx.strokeStyle = '#888888'; 
-            ctx.lineWidth = 2;
+
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1.5 / ast.scale;
             ctx.stroke();
 
             if (debugMode) {
                 ctx.strokeStyle = '#00ff00';
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 4 / ast.scale;
                 ctx.stroke();
             }
 
             for (let c of ast.craters) {
                 ctx.beginPath();
                 ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
-                ctx.fillStyle = '#222222'; 
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; 
                 ctx.fill();
-                ctx.strokeStyle = '#333333'; 
-                ctx.lineWidth = 1;
+                
+                let highlightStart = -ast.angle + this.globalLightAngle + (Math.PI / 2);
+                let highlightEnd = -ast.angle + this.globalLightAngle + (Math.PI * 1.5);
+                
+                ctx.beginPath();
+                ctx.arc(c.x, c.y, c.r, highlightStart, highlightEnd);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 2 / ast.scale;
                 ctx.stroke();
             }
             ctx.restore();

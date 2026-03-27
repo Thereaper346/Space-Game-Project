@@ -1,3 +1,6 @@
+// ============================================================================
+// FILE: item.js (Fixed Center-Scale Zoom Culling bug)
+// ============================================================================
 import { audio } from './audio.js';
 
 export class ItemManager {
@@ -84,7 +87,17 @@ export class ItemManager {
             let screenX = item.x - camera.x;
             let screenY = item.y - camera.y;
             
-            if (screenX < -400 || screenX > ctx.canvas.width + 400 || screenY < -400 || screenY > ctx.canvas.height + 400) continue;
+            // --- FIX: TRUE CAMERA BOUNDS MATH ---
+            // Dynamically calculates the viewable area based on your zoom scale!
+            let scale = camera.currentScale || 1.0;
+            let cx = ctx.canvas.width / 2;
+            let cy = ctx.canvas.height / 2;
+            let viewRadiusX = (ctx.canvas.width / scale) / 2;
+            let viewRadiusY = (ctx.canvas.height / scale) / 2;
+
+            if (screenX < cx - viewRadiusX - 400 || screenX > cx + viewRadiusX + 400 || 
+                screenY < cy - viewRadiusY - 400 || screenY > cy + viewRadiusY + 400) continue;
+            // ------------------------------------
 
             ctx.save();
             ctx.translate(screenX, screenY);

@@ -1,3 +1,6 @@
+// ============================================================================
+// FILE: station.js (Removed unnecessary culling to fix popping)
+// ============================================================================
 import { audio } from './audio.js';
 
 export class StationManager {
@@ -57,12 +60,26 @@ export class StationManager {
             let biome = worldSys.getBiome(player.x, player.y);
             if (biome.type === 'safe' && this.stations.length === 0) {
                 
-                let spawnAngle = player.angle || (Math.random() * Math.PI * 2);
-                let spawnDist = 1500;
+                let sx = player.x;
+                let sy = player.y - 600; 
+                
+                for (let attempts = 0; attempts < 10; attempts++) {
+                    let spawnAngle = Math.random() * Math.PI * 2; 
+                    let spawnDist = 600 + Math.random() * 400;    
+                    
+                    let testX = player.x + Math.cos(spawnAngle) * spawnDist;
+                    let testY = player.y + Math.sin(spawnAngle) * spawnDist;
+                    
+                    if (worldSys.getBiome(testX, testY).type === 'safe') {
+                        sx = testX;
+                        sy = testY;
+                        break; 
+                    }
+                }
                 
                 this.stations.push({
-                    x: player.x + Math.cos(spawnAngle) * spawnDist,
-                    y: player.y + Math.sin(spawnAngle) * spawnDist,
+                    x: sx,
+                    y: sy,
                     angle: 0, 
                     blueprint: stationBlueprint,
                     healTimer: 0
@@ -78,7 +95,7 @@ export class StationManager {
             let screenX = station.x - camera.x;
             let screenY = station.y - camera.y;
 
-            if (screenX < -2000 || screenX > ctx.canvas.width + 2000 || screenY < -2000 || screenY > ctx.canvas.height + 2000) continue;
+            // Culling removed entirely here. The station will always safely draw!
 
             ctx.save();
             ctx.translate(screenX, screenY);
@@ -113,11 +130,10 @@ export class StationManager {
                             
                             const pGridSize = part.gridSize || 16;
                             for (let pRow = 0; pRow < pGridSize; pRow++) {
-                                if (!part.data[pRow]) continue; // Anti-Crash
+                                if (!part.data[pRow]) continue; 
                                 for (let pCol = 0; pCol < pGridSize; pCol++) {
                                     let colorVal = part.data[pRow][pCol];
                                     if (colorVal !== 0 && colorVal !== null && colorVal !== undefined) { 
-                                        // Universal Color Translator
                                         ctx.fillStyle = (typeof colorVal === 'number') ? palette[colorVal] : colorVal; 
                                         ctx.fillRect(partX + (pCol * flightScale), partY + (pRow * flightScale), flightScale, flightScale); 
                                     }
